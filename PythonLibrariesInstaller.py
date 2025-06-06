@@ -2,12 +2,13 @@ import importlib.util
 import subprocess
 import sys
 
-# Mapping: pip name -> import name
+# pip name : import name
 required_packages = {
     "Pillow": "PIL",
     "requests": "requests",
     "yt_dlp": "yt_dlp",
-    "beautifulsoup4": "bs4"
+    "beautifulsoup4": "bs4",
+    "pyperclip": "pyperclip"
 }
 
 def is_installed(import_name):
