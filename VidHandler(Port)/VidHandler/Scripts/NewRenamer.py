@@ -60,7 +60,22 @@ def sanitize_filename(name):
     name = name.replace(":", " ")
     return re.sub(r'[<>"/\\|?*]', '', name)
 
-# 🔹 Rename video files with the correct channel name
+# 🔹 Remove emojis and symbols from channel name
+def clean_channel_name(name):
+    name = re.sub(r'[^\w\s-]', '', name)  # Remove most symbols except space and dash
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags
+        "\U00002700-\U000027BF"  # dingbats
+        "\U000024C2-\U0001F251"  # enclosed characters
+        "]+", flags=re.UNICODE
+    )
+    return emoji_pattern.sub('', name).strip()
+
+# 🔹 Rename video files with the correct channel name or anime name
 def rename_videos():
     channel_mapping = get_channel_mapping()
     anime_mapping = get_anime_mapping()
@@ -84,10 +99,15 @@ def rename_videos():
                 break
 
         if matched_channel:
-            new_file_name = sanitize_filename(f"{matched_channel} - {file.name}")
-            new_path = file.with_name(new_file_name)
-            file.rename(new_path)
-            print(f"✅ Renamed: {file.name} → {new_file_name}")
+            clean_channel = clean_channel_name(matched_channel)
+            # ✅ Prevent stacking prefixes
+            if not file.name.startswith(f"{clean_channel} -"):
+                new_file_name = sanitize_filename(f"{clean_channel} - {file.name}")
+                new_path = file.with_name(new_file_name)
+                file.rename(new_path)
+                print(f"✅ Renamed: {file.name} → {new_file_name}")
+            else:
+                print(f"⚠ Skipped (already renamed): {file.name}")
         else:
             print(f"⚠ No match found for: {file.name}")
 
@@ -115,6 +135,6 @@ def rename_videos():
     CHANNELS_FILE.write_text("", encoding="utf-8")
     print("🧹 youtube_channels.txt cleared!")
 
-# Run the script
+# ▶ Run the script
 if __name__ == "__main__":
     rename_videos()

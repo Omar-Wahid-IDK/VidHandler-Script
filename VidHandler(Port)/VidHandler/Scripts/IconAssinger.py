@@ -16,7 +16,7 @@ IconResource={icon_path},0
 ConfirmFileOp=0
 """)
 
-    # Set file attributes: Hidden only (not System)
+    # Set file attributes: Hidden and Read-only
     subprocess.run(['attrib', '+h', desktop_ini_path], shell=True)
     subprocess.run(['attrib', '+r', folder_path], shell=True)
 
@@ -25,7 +25,6 @@ def apply_icon_to_folder(folder_path, icon_filename, icons_folder):
     desktop_ini_path = os.path.join(folder_path, 'desktop.ini')
 
     if os.path.isdir(folder_path):
-        # Skip if desktop.ini already exists
         if os.path.exists(desktop_ini_path):
             print(f"Icon already set for: {folder_path}")
             return
@@ -39,31 +38,50 @@ def apply_icon_to_folder(folder_path, icon_filename, icons_folder):
         print(f"Folder not found: {folder_path}")
 
 # Main
-script_dir = os.path.dirname(__file__)  # Get the directory where the script is located
-config_path = os.path.join(script_dir, '..', '..', 'Paths.txt')  # Navigate to E:\Projects\VidHandler(Port)\Paths.txt
-base_dir = Path(__file__).resolve().parent.parent.parent  # from Scripts → VidHandler
-# Read the Paths.txt file to load YouTube and Anime folder paths
+script_dir = os.path.dirname(__file__)
+config_path = os.path.join(script_dir, '..', '..', 'Paths.txt')
+base_dir = Path(__file__).resolve().parent.parent.parent
+
 if os.path.exists(config_path):
     with open(config_path, 'r') as file:
         lines = file.readlines()
-        base_folder = lines[0].strip()  # Assuming the first line contains the YouTube folder path
+        base_folder = lines[0].strip()
 else:
     print("No Folder Paths Known")
+    exit()
 
-icons_folder = base_dir / "Icons\Icon"
+icons_folder = base_dir / "Icons" / "Icon"
 
 # Get icon files and folders
-icon_files = os.listdir(icons_folder)
+icon_files = [f for f in os.listdir(icons_folder) if f.lower().endswith('.ico')]
 folders = [f for f in os.listdir(base_folder) if os.path.isdir(os.path.join(base_folder, f))]
+
+# Preprocess normalized icon names without extensions
+normalized_icons = {
+    normalize_name(icon).replace('.ico', ''): icon
+    for icon in icon_files
+}
 
 for folder in folders:
     normalized_folder = normalize_name(folder)
     matched_icon = None
 
-    for icon in icon_files:
-        if normalized_folder in normalize_name(icon):
-            matched_icon = icon
-            break
+    # First: exact match
+    if normalized_folder in normalized_icons:
+        matched_icon = normalized_icons[normalized_folder]
+    else:
+        # Second: partial matches only where folder is prefix
+        possible_matches = [
+            (icon_norm, original_icon)
+            for icon_norm, original_icon in normalized_icons.items()
+            if icon_norm.startswith(normalized_folder)
+            and icon_norm != normalized_folder
+        ]
+
+        if possible_matches:
+            # Prefer shorter suffixes (e.g., avoid MK2 when possible)
+            possible_matches.sort(key=lambda x: len(x[0]))
+            matched_icon = possible_matches[0][1]
 
     if matched_icon:
         folder_path = os.path.join(base_folder, folder)
